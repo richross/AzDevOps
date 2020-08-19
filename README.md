@@ -23,7 +23,7 @@ The general workflow/result will be as follows:
 * Rinse and repeat upon each code update via Git
 * Profit
 
-![Azure DevOps Workflow](workflow.png)
+![Azure DevOps Workflow](images/AKSDevOpsFlow.png)
 
 #### Setup Azure DevOps Project
 
