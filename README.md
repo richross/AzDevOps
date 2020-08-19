@@ -33,13 +33,14 @@ The general workflow/result will be as follows:
     * Name your project "kubernetes-hackfest" and give it a description.
     * Leave the Version control as Git
 
-    ![Azure DevOps New Project](:::image type="content" source="images/newProject.png" alt-text="new project":::images/newProject.png)
+    ![Azure DevOps New Project](images/newProject.png)
 
 1. On the next screen, click "Repos" and then "Import a repository"
 
-    Enter `https://github.com/swgriffith/JabbR` for the Clone URL and click "Import"
+    Enter `https://github.com/richross/JabbR` for the Clone URL and click "Import"
     
-    :::image type="content" source="images/ImportRepo.png" alt-text="Azure DevOps Import":::
+![Repo Import Repo](images/ImportRepo.png)
+
 
 #### Create Build Pipeline
 
@@ -50,12 +51,12 @@ The general workflow/result will be as follows:
 
 1. Azure DevOps pipelines now defaults to the yaml based editing experience. The following steps assume classic mode, so you should select 'Use the classic editor' as shown below.
 
-    ![Switch to Classic Mode](azure-do-use-classic.png)
+    ![Switch to Classic Mode](images/ClassicMode.png)
 
-1. In "Select a source," use `Azure Repos Git` and ensure it is pointing to your newly built repo (this is the default)
+1. In "Select a source," use `Azure Repos Git` and ensure it is pointing to your newly built repo (this is the default).  Click Continue.
     > Note that we are using the master branch here. Normally we would use other branches and PR's. For simplicity, we are using master just for this lab.
 
-1. Select to "start with an Empty job"
+1. Select to "start with an Empty job" at the top of the property window.
 
 1. Leave the name as "kubernetes-hackfest-CI"
 
@@ -65,9 +66,14 @@ The general workflow/result will be as follows:
 
 1. Search tasks for "Azure" and add the Azure CLI task
 
-    ![Azure DevOps Azure CLI](azure-do-azurecli.png)
+    ![Azure DevOps Azure CLI](images/AzureCLI.png)
 
-1. Click on the Azure CLI task and choose your Azure subscription and `Authorize`
+1. Click on the Azure CLI task in the drop down for Azure Resource Manager, select the Azure Service Connection created from the Service Provider.  
+
+> [!IMPORTANT]
+> We will create this in the lab once and it will be available to all participants.
+
+1. For "Script Type" select "Shell".
 
 1. For "Script Location" choose "Inline script" and enter the following (be sure to replace the ACR name with yours). 
 
@@ -75,33 +81,30 @@ The general workflow/result will be as follows:
 
     ```bash
     # set your Azure Container Registry name below
-    export ACRNAME=
-    export IMAGETAG=azuredevops-$(Build.BuildId)
+    export ACRNAME=<your acr name>
+    export IMAGETAG=jabbr:$(Build.BuildId)
 
-    az acr build -t hackfest/data-api:$IMAGETAG -r $ACRNAME --no-logs ./app/data-api
-    az acr build -t hackfest/flights-api:$IMAGETAG -r $ACRNAME --no-logs ./app/flights-api
-    az acr build -t hackfest/quakes-api:$IMAGETAG -r $ACRNAME --no-logs ./app/quakes-api
-    az acr build -t hackfest/weather-api:$IMAGETAG -r $ACRNAME --no-logs ./app/weather-api
-    az acr build -t hackfest/service-tracker-ui:$IMAGETAG -r $ACRNAME --no-logs ./app/service-tracker-ui  
+    az acr build -t $IMAGETAG -r $ACRNAME --no-logs -o json . --platform Windows --verbose
     ```
 
-    ![Azure DevOps CLI](azure-do-cli.png)
+    ![Azure DevOps CLI](images/AzureCLICode.png)
 
-1. Add a final task to "Agent job 1" and search for "Publish Pipeline Artifact". Use "charts" for the "Artifact name" and browse to the charts folder for the "File or directory path".
+1. Add a final task to "Agent job 1" and search for "Publish Pipeline Artifact". Select it and click Add to bring it into the build.
 
-    ![Azure DevOps Artifact](azure-do-pipeline-artifact.png)
+1. Use "chart" for the "Artifact name" and browse to the charts folder for the "File or directory path".
 
-1. Test this by clicking "Save & queue" and providing a comment
+    ![Azure DevOps Artifact](images/PublishPipelineArtifact.png)
+
+1. Test this by clicking "Save & queue".  Provide a comment.  Click Save and Run button at the bottom of the property window.
 
 1. Click on "Builds" to check result. It can take a bit of time for all of the steps to complete. 
 
 1. Enable Continuous integration for the build definition. Edit the build definition and you will find this setting under "Triggers"
 
+
 #### Create Deployment Pipeline
 
 In the deployment pipeline, we will create a Helm task to update our application. 
-
-    > Note: To save time, we will only deploy the service-tracker-ui application in this lab. 
 
 1. In Azure DevOps, click on "Pipelines" on the left menu and then click "Releases"
 
@@ -111,11 +114,14 @@ In the deployment pipeline, we will create a Helm task to update our application
 
 1. Name the pipeline "AKS Helm Deploy" (it will default to "New release pipeline")
 
+> [!NOTE]
+> You may run into an issue trying to change the name of the pipeline.  If that happens, keep the existing name.
+
 1. Click on "+ Add" next to Artifacts
 
 1. In "Source (build pipeline)", select the build we created earlier (should be named "kubernetes-hackfest-CI")
 
-    ![Azure DevOps Release Artifact](azure-do-release-artifact.png)
+    ![Azure DevOps Release Artifact](images/AddAnArtifact.png)
 
 1. Click on the lightning bolt next to the Artifact we just created and enable "Continuous deployment trigger"
 
@@ -131,7 +137,7 @@ In the deployment pipeline, we will create a Helm task to update our application
 
 1. Search for "helm" and add the task called "Helm Tool Installer" as first task. Click Add
 
-    > Change the version for the helm install to `3.1.1`
+    > Change the version for the helm install to `3.3.0-rc.2`
 
 1. Next, Search for "helm" and add the task called "Package and deploy Helm charts". Click Add
 
@@ -139,17 +145,18 @@ In the deployment pipeline, we will create a Helm task to update our application
     
     * Select your Azure subscription in the dropdown and click "Authorize"
     * Select the Resource Group and AKS Cluster
-    * For Namespace, enter "hackfest"
+    * For Namespace, enter "jabbr"
     * For the Command select "upgrade"
     * For Chart type select "File Path"
-    * For Chart path, click the "..." button and browse to the "service-tracker-ui" chart in the charts directory
-    * For the Release Name, enter `service-tracker-ui`
+    * For Chart path, click the "..." button and browse to the "chart" folder in the charts directory
+    * For the Release Name, enter `jabbr`
     * For Set Values you will need to fix the ACR server to match your ACR server name and the imageTag needs to be set.
-        Eg - `deploy.acrServer=acrhackfestbrian13932.azurecr.io,deploy.imageTag=azuredevops-$(Build.BuildId)`
+        Eg - `deploy.acr=acrhackfestrich15966.azurecr.io,deploy.imageTag=$(Build.BuildId)`
 
-    ![Azure DevOps Helm Task](azure-do-helm-task.png)
+    ![Azure DevOps Helm Task](images/HelmUpgrade.png)
 
-    * Click "Save"
+    * Click "Save".
+    * Enter a comment and click Ok on the popup.
 
 #### Run a test build
 
@@ -157,11 +164,11 @@ In the deployment pipeline, we will create a Helm task to update our application
 
 1. Monitor the builds and wait for the build to complete
 
-    ![Azure DevOps Build](azure-do-build.png)
+    ![Azure DevOps Build](images/BuildPipeline.png)
 
 1. The release will automatically start when the build is complete (be patient, this can take some time). Review the results as it is complete. 
 
-    ![Azure DevOps Release](azure-do-release.png)
+    ![Azure DevOps Release](images/ReleasePipeline.png)
 
 1. Validate that your newly built image was deployed in your AKS cluster. Eg - `kubectl describe pod service-tracker-ui-<pod id> -n hackfest`
 
@@ -175,5 +182,4 @@ In the deployment pipeline, we will create a Helm task to update our application
 ## Docs / References
 
 * Blog post by Jessica Dean. https://jessicadeen.com/how-to-deploy-to-kubernetes-using-helm-and-vsts 
-
-#### Next Lab: [Networking](../../networking/README.md)
+* Focus .NET Conf on Microservices -> https://www.youtube.com/watch?v=ZEvoxXnsbbU&list=PLdo4fOcmZ0oUc2ShrReCS7KoBbPEONE0p
